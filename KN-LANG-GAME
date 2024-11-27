@@ -1,0 +1,198 @@
+// Just Saying: Define the Player Squad
+Squad Player {
+    Quark name: string
+    Quark inventory: List
+    Quark currentRoom: Room
+    Quark points: number
+    Quark solvedRiddles: Set
+
+    // Just Saying: Initialize the Player
+    Doodle Init(name) {
+        this.name = name
+        this.inventory = []
+        this.currentRoom = null
+        this.points = 0
+        this.solvedRiddles = []
+    }
+
+    // Just Saying: Pick up an item
+    Doodle pickUp(item) {
+        If (!this.currentRoom) {
+            Return "No room here!"
+        }
+        If (this.currentRoom.items.has(item)) {
+            this.inventory.add(item)
+            this.currentRoom.items.remove(item)
+            Return `Picked up ${item}!`
+        }
+        Return "Item not here."
+    }
+
+    // Just Saying: Move between rooms
+    Doodle move(direction) {
+        If (!this.currentRoom) {
+            Return "You're lost!"
+        }
+        Quark nextRoom = this.currentRoom.exits[direction]
+        If (nextRoom) {
+            this.currentRoom = nextRoom
+            Return `Entered ${this.currentRoom.name}.\n${this.currentRoom.describe()}`
+        }
+        Return "Can't go that way."
+    }
+
+    // Just Saying: Add points
+    Doodle addPoints(points) {
+        this.points += points
+    }
+}
+
+// Just Saying: Define the Room Squad
+Squad Room {
+    Quark name: string
+    Quark description: string
+    Quark items: List
+    Quark exits: Map
+    Quark riddle: Map
+
+    // Just Saying: Initialize the Room
+    Doodle Init(name, description) {
+        this.name = name
+        this.description = description
+        this.items = []
+        this.exits = {}
+        this.riddle = null
+    }
+
+    // Just Saying: Add an exit to another room
+    Doodle addExit(direction, room) {
+        this.exits[direction] = room
+    }
+
+    // Just Saying: Add a riddle
+    Doodle setRiddle(question, answer) {
+        this.riddle = { question: question, answer: answer }
+    }
+
+    // Just Saying: Describe the room
+    Doodle describe() {
+        Quark desc = `You're in ${this.name}.\n${this.description}\n`
+        If (this.items.length > 0) {
+            desc += `Items: ${this.items.join(", ")}\n`
+        }
+        desc += `Exits: ${this.exits.keys().join(", ")}\n`
+        If (this.riddle?.question) {
+            desc += `Riddle: ${this.riddle.question}`
+        }
+        Return desc
+    }
+}
+
+// Just Saying: Define the Game Manager Squad
+Squad GameManager {
+    Quark player: Player
+    Quark rooms: Map
+
+    // Just Saying: Initialize the game
+    Doodle initGame() {
+        Quark startRoom = Room("Cavern", "A dimly lit cavern.")
+        Quark puzzleRoom = Room("Riddle Room", "Symbols cover the walls.")
+        Quark challengeRoom = Room("Challenge Room", "Glowing numbers flicker.")
+        Quark treasureRoom = Room("Treasure Room", "Filled with shiny treasures.")
+        Quark libraryRoom = Room("Library", "Dusty books and ancient scrolls.")
+        Quark exitRoom = Room("Gateway", "A massive door stands ahead.")
+
+        // Just Saying: Connect rooms
+        startRoom.addExit("north", puzzleRoom)
+        puzzleRoom.addExit("south", startRoom)
+        puzzleRoom.addExit("east", challengeRoom)
+        challengeRoom.addExit("west", puzzleRoom)
+        challengeRoom.addExit("east", treasureRoom)
+        treasureRoom.addExit("west", challengeRoom)
+        treasureRoom.addExit("north", libraryRoom)
+        libraryRoom.addExit("south", treasureRoom)
+        libraryRoom.addExit("east", exitRoom)
+        exitRoom.addExit("west", libraryRoom)
+
+        // Just Saying: Add items
+        startRoom.items.add("key")
+        puzzleRoom.items.add("scroll")
+        treasureRoom.items.add("gold coin")
+        libraryRoom.items.add("ancient book")
+
+        // Just Saying: Add riddles
+        puzzleRoom.setRiddle("What has keys but can't open locks?", "keyboard")
+        challengeRoom.setRiddle("What is 7 * 6?", "42")
+        libraryRoom.setRiddle("I speak without a mouth and hear without ears. What am I?", "echo")
+
+        this.rooms = {
+            start: startRoom,
+            puzzle: puzzleRoom,
+            challenge: challengeRoom,
+            treasure: treasureRoom,
+            library: libraryRoom,
+            exit: exitRoom
+        }
+        Return startRoom
+    }
+
+    // Just Saying: Start the game
+    Doodle startGame(playerName) {
+        this.player = Player(playerName)
+        this.player.currentRoom = this.initGame()
+        Return `Welcome, ${playerName}!\n${this.player.currentRoom.describe()}`
+    }
+
+    // Just Saying: Process commands
+    Doodle processCommand(command) {
+        Quark parts = command.lower().split(" ")
+        Quark action = parts[0]
+        Quark target = parts.slice(1).join(" ")
+
+        SpinCycle (action) {
+            Case "go": Return this.player.move(target)
+            Case "look": Return this.player.currentRoom.describe()
+            Case "take": Return this.player.pickUp(target)
+            Case "inventory": Return this.player.inventory.length > 0
+                ? `Inventory: ${this.player.inventory.join(", ")}`
+                : "Inventory is empty."
+            Case "solve":
+                If (this.player.currentRoom.riddle) {
+                    Quark { question, answer } = this.player.currentRoom.riddle
+                    If (this.player.solvedRiddles.has(question)) Return "Riddle already solved!"
+                    If (target == answer) {
+                        this.player.solvedRiddles.add(question)
+                        this.player.addPoints(10)
+                        Return `Correct! Points: ${this.player.points}`
+                    }
+                    Return "Wrong answer."
+                }
+                Return "No riddle here."
+            Case "help": Return "Commands: 'go <direction>', 'look', 'take <item>', 'inventory', 'solve <answer>', 'quit'"
+            Default: Return "Invalid command."
+        }
+    }
+
+    // Just Saying: Run the game
+    Doodle run() {
+        Console.WriteLine(this.startGame("Player"))
+        Console.WriteLine("Type 'help' for commands.")
+
+        SpinCycle (true) {
+            Quark command = Console.ReadLine("> ")
+            If (command.lower() == "quit") {
+                Console.WriteLine(`Goodbye! Final Points: ${this.player.points}`)
+                Break
+            }
+            Console.WriteLine(this.processCommand(command))
+        }
+    }
+}
+
+// Just Saying: Start the game
+Doodle Main() {
+    Quark game = GameManager()
+    game.run()
+}
+
+Main()
